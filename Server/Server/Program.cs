@@ -47,52 +47,66 @@ namespace Server
             Socket TCPConnector = new Socket(LocalEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             TCPConnector.Connect(LocalEndPoint);
 
-            // Create a control header, the binary/boolnea sequence is reversed.
-            Boolean[] ControlPacket = new Boolean[8] { true, false, false, true, false, false, false, false };
-            Array.Reverse(ControlPacket); // Copy will invert the order, so swap it before conversion
-            Byte[] ControlSequence = BitArrayToByteArray(new BitArray(ControlPacket));
-
-            Console.WriteLine(ControlSequence[0].ToString());
-
+            // Send a hello
+            IRMP ProtocolHelper = new IRMP();
             // Send the header
-            TCPConnector.Send(ControlSequence);
-
+            TCPConnector.Send(ProtocolHelper.Hello(65535));
+            // Get a response
+            if (true)
+            {
+                Byte[] StreamCmd = new byte[1];
+                Byte[] StreamData = new byte[2];
+                TCPConnector.Receive(StreamCmd, 0, 1, SocketFlags.None);
+                TCPConnector.Receive(StreamData, 0, 2, SocketFlags.None);
+            }
+            
             // Connection will be closed 
             Thread.Sleep(10000);
         }
 
-        private static byte[] BitArrayToByteArray(BitArray bits)
+        class IRMP
         {
-            byte[] ret = new byte[(bits.Length - 1) / 8 + 1];
-            bits.CopyTo(ret, 0);
-            return ret;
+            static readonly byte CMD_Hello = BitConverter.GetBytes((Byte)1)[0];
+
+            public byte[] Hello(UInt16 PossibleID)
+            {
+                byte[] PossibleIDStore = BitConverter.GetBytes(PossibleID);
+                return new byte[3] { CMD_Hello, PossibleIDStore[0], PossibleIDStore[1] };
+            }
         }
 
         private static void SocketRead(Object PassedArgs)
         {
-            Console.WriteLine("Waiting for a connection...");
+            Console.WriteLine("Waiting for a connection..."); 
 
             // Wait and accept a client
-            Socket SocketFH = ((Socket)PassedArgs).Accept();
+            Socket SocketFH =  ((Socket)PassedArgs).Accept();
             Boolean FirstByte = true;
-            Byte[] StreamHeader = new byte[2];
+            Byte[] StreamCmd = new byte[1];
+            Byte[] StreamData = new byte[2];
 
             if (FirstByte)
             {
                 try
                 {
-                    SocketFH.Receive(StreamHeader, 0, 2, SocketFlags.None);
+                    SocketFH.Receive(StreamCmd, 0, 1, SocketFlags.None);
+                    SocketFH.Receive(StreamData, 0, 2, SocketFlags.None);
                 }
                 catch
                 {
-                    Console.WriteLine("Failed to extract stream header");
-                    return;
                 }
+                Console.WriteLine(StreamCmd.ToString());
+                Console.WriteLine(BitConverter.ToUInt16(StreamData,0));
             }
 
-            //Console.WriteLine(StreamHeader.ToString());
+            while (true)
+            {
+
+                Thread.Sleep(100);
+            }
 
             SocketFH.Close();
         }
     }
+
 }
